@@ -58,7 +58,8 @@ function deviceCard(client) {
           ${icon('led', 'h-4 w-4')} Controlar
         </button>
         <button data-act="power" class="icon-btn border border-zinc-300 dark:border-zinc-700"
-                aria-label="Apagar ${escapeHtml(client.nickname)}" ${online ? '' : 'disabled'}>
+                aria-label="${strip.lit ? 'Apagar' : 'Acender'} ${escapeHtml(client.nickname)}"
+                title="${strip.lit ? 'Apagar' : 'Acender'}" ${online ? '' : 'disabled'}>
           ${icon('power', 'h-4 w-4')}
         </button>
       </div>
@@ -122,7 +123,7 @@ export async function mount(view) {
         router.go('/led');
       };
       const power = card.querySelector('[data-act="power"]');
-      if (power) power.onclick = () => powerOff([mac]);
+      if (power) power.onclick = () => togglePower(mac, power);
     });
 
     const allOff = devicesEl.querySelector('[data-act="all-off"]');
@@ -152,10 +153,34 @@ export async function mount(view) {
       patchStage(card.querySelector('[data-stage]'), client, 'lg');
       card.querySelector('[data-status]').innerHTML = statusHtml(client);
       card.querySelector('[data-act="control"]').className = `${isOnline ? 'btn-led' : 'btn-ghost'} flex-1`;
+
+      const power = card.querySelector('[data-act="power"]');
+      if (power) {
+        const verb = strip.lit ? 'Apagar' : 'Acender';
+        power.setAttribute('aria-label', `${verb} ${client.nickname}`);
+        power.title = verb;
+        power.disabled = !isOnline;
+      }
     });
 
     const summary = devicesEl.querySelector('[data-summary]');
     if (summary) summary.textContent = summaryText(lit, online);
+  }
+
+  // Sem confirmação: apagar uma fita é reversível no mesmo botão, então pedir
+  // confirmação custava mais que o erro. Apagar TODAS continua confirmando.
+  async function togglePower(mac, button) {
+    if (!store.isConnected(mac)) return;
+    button.disabled = true;
+    try {
+      const res = await api.toggleLed({ espMacs: [mac] });
+      const failed = (res.results || []).find((item) => !item.ok);
+      if (failed) toast('error', failed.error || 'Não foi possível alternar a fita');
+    } catch (e) {
+      toast('error', e.message);
+    } finally {
+      button.disabled = false;
+    }
   }
 
   async function powerOff(macs) {

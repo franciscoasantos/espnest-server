@@ -13,6 +13,7 @@ const {
   handleUpsertClient,
   handleWOL,
   handleLED,
+  handleToggle,
   handleEffect,
   handleGradient,
   handleSegments,
@@ -182,6 +183,11 @@ const httpServer = http.createServer((req, res) => {
   // LED COMMAND
   if (req.url === "/led" && req.method === "POST") {
     return handleLED(req, res);
+  }
+
+  // LIGA/DESLIGA — apaga, ou devolve a fita ao que ela mostrava antes.
+  if (req.url === "/led/toggle" && req.method === "POST") {
+    return handleToggle(req, res);
   }
 
   // EFFECT COMMAND (efeito roda no firmware do ESP)
