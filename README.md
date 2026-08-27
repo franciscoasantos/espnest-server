@@ -291,23 +291,29 @@ A interface é uma SPA (single-page app) servida em todas as rotas de página; a
 1. Acesse `http://localhost:9000`
 2. Faça login
 3. Navegue pelas telas:
-   - `/` **Dashboard** — visão geral dos dispositivos, status ao vivo e o que cada LED está fazendo (cor sólida, apagado ou efeito ativo)
-   - `/led` **Controle de LED** — seletor de cor, efeitos e cenas
-   - `/wol` **Wake-on-LAN** — disparo de pacote mágico
-   - `/routines` **Rotinas** — agendamento por horário ou posição do sol, e modo ausente
-   - `/devices` **Dispositivos** — cadastro de ESP32, descoberta e alvos WoL
+   - `/` **Início** — o que cada fita está mostrando agora, mais atalhos para aplicar cenas e acordar PCs
+   - `/led` **Luz** — três abas: **Agora** (cor, efeitos e gradiente), **Cenas** e **Rotinas** (agendamento + modo ausente)
+   - `/wol` **Wake-on-LAN** — alvos: criar, editar e acordar
+   - `/devices` **Dispositivos** — ESP32: firmware/OTA, descoberta e cadastro
 
-> As rotas antigas `/config` e `/wol-targets` continuam funcionando como **aliases** de `/devices` (deep-links preservados).
+As sub-telas de Luz têm rota própria (`/led/cenas`, `/led/rotinas`), então dão deep-link e respondem ao botão voltar. Trocar de aba no dia a dia **não** remonta a tela: os painéis são montados sob demanda e mantidos, para o seletor de cor não ser redesenhado a cada toque.
+
+> Deep-links antigos continuam funcionando como **aliases**: `/routines` → `/led/rotinas`, `/wol-targets` → `/wol`, `/config` → `/devices`.
+>
+> Rota de página nova precisa entrar **também** na whitelist de `src/server.js`, senão o deep-link funciona na navegação e dá 404 no refresh.
 
 ### Comportamento atual das telas
 
-- **Seletor global de dispositivos**: uma barra persistente no topo (em LED e WoL) permite escolher um ou vários ESPs **uma única vez**; a seleção é compartilhada entre as telas e salva no navegador
+- **A luz é o acento**: a cor que a fita está mostrando entra na interface por uma custom property (`--led`) alimentada pelo SSE. Cada card veste a cor da própria fita, e o item ativo do menu segue a fita selecionada. A tinta sobre essa cor é escolhida por luminância, então um amarelo puro recebe texto escuro em vez de branco; fita apagada ou offline cai para um cinza neutro
+- **Palco da fita**: em vez de uma bolinha de 12 px, o estado aparece como a fita desenhada em 1D — cor sólida, gradiente **e segmentos**, cada um como um `linear-gradient`. Como o `pattern` já vem junto do evento SSE `state`, segmentos ficam visíveis mesmo sem existir um editor de segmentos
+- **Seletor global de dispositivos**: uma barra persistente no topo (em Luz e WoL) permite escolher um ou vários ESPs **uma única vez**; a seleção é compartilhada entre as telas e salva no navegador
 - **Tema**: escuro por padrão, com alternância para claro (preferência salva)
-- **Dashboard**: cada card mostra status de conexão e o estado do LED — para efeito ativo, exibe o nome (Respiração/Arco-íris/Transição) com swatch animado
-- **LED**: seletor de cor (anel de matiz + quadrado saturação/valor) que aplica ao vivo nos selecionados; favoritos rápidos; **efeitos** com iniciar/parar e sliders de velocidade e intensidade (o rótulo da intensidade muda conforme o efeito); **cenas** com preview de cor e aplicação em 1 toque
-- **LED (RGBW)**: quando houver ESP SK6812 selecionado, aparece o controle do canal branco (`w`)
-- **WoL**: lista de alvos pesquisável; dispara via ESPs selecionados com feedback por dispositivo
-- **Dispositivos**: cadastro por MAC do ESP, apelido, `ledCount`, `ledPin` e `ledType` (`ws2812b`/`sk6812`); ESPs descobertos aparecem com botão "Registrar" (fluxo guiado); gerenciamento de alvos WoL na mesma tela. A aba ESP32 traz também o firmware publicado, o envio de um `.bin` novo e o botão **Atualizar** por dispositivo
+- **Mobile-first**: alvos de toque de 44 px, barra inferior respeitando a área segura do iPhone (`env(safe-area-inset-bottom)`), e ações de cena visíveis no toque — antes só apareciam no hover, o que as tornava inalcançáveis no celular
+- **Início**: um card por fita, abrindo com o palco; o toque em "Controlar" seleciona aquele dispositivo e vai para Luz. Traz ainda cenas e alvos WoL em um toque. Atualiza por remendo, não por re-render: o evento `state` chega a cada frame enquanto alguém arrasta a cor
+- **Luz › Agora**: seletor de cor (anel de matiz + quadrado saturação/valor) aplicando ao vivo nos selecionados; paleta de tons e favoritos; **efeitos** com iniciar/parar e sliders de velocidade e intensidade (o rótulo da intensidade muda conforme o efeito); **gradiente**. Quando houver ESP SK6812 selecionado, aparece o controle do canal branco (`w`)
+- **Luz › Rotinas**: criar, **editar**, testar, pausar e excluir. O formulário é um modal (bottom-sheet no celular) e o seletor de cor só aparece quando a ação realmente usa cor — arco-íris, transição e fogo têm paleta própria
+- **WoL**: lista de alvos pesquisável, com criar e editar na mesma tela. Alvo com **IP ou hostname** dispara o *ritual*: a fita vira barra de progresso azul enquanto o servidor sonda a máquina, e pisca verde quando ela responde
+- **Dispositivos**: cadastro por MAC do ESP, apelido, `ledCount`, `ledPin` e `ledType` (`ws2812b`/`sk6812`); ESPs descobertos aparecem com botão "Registrar" (fluxo guiado); firmware publicado, envio de um `.bin` novo e o botão **Atualizar** por dispositivo
 
 ### Atualizando o firmware pelo ar
 
@@ -364,7 +370,7 @@ O cookie `token` é `HttpOnly; Path=/; Max-Age=30d; SameSite=Lax`, e ganha `Secu
 
 ### Alvos WoL
 - `GET /api/wol-targets`
-- `POST /api/wol-targets`
+- `POST /api/wol-targets` — aceita `mac`, `nickname` e `host` (IP/hostname opcional, usado pelo ritual de WoL; string vazia limpa)
 
 ### Rotinas
 - `GET /api/schedules` — inclui `todayMinutes` (horário resolvido de hoje) e `ranToday`
@@ -641,8 +647,12 @@ espnest-server/
 │               ├── store.js      # estado central + ponte SSE
 │               ├── router.js     # roteador por pathname
 │               ├── ui.js         # toasts, modais, tema, ícones
-│               ├── components/   # deviceSelector, colorControl, gradientEditor, sceneCard, resultToast
-│               └── views/        # dashboard, led, wol, routines, devices
+│               ├── liveAccent.js # alimenta --led a partir do SSE
+│               ├── lib/          # color, effects, time (sem DOM)
+│               ├── components/   # deviceSelector, colorControl, gradientEditor,
+│               │                 # stripStage, sceneCard, scheduleCard,
+│               │                 # scheduleForm, wolTarget, resultToast
+│               └── views/        # dashboard, led (+ led/), wol, devices
 ├── package.json
 └── README.md
 ```
