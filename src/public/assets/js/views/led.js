@@ -4,7 +4,8 @@
 import { store } from '../store.js';
 import { api } from '../api.js';
 import { icon, escapeHtml, toast, openModal, confirmModal, node } from '../ui.js';
-import { createColorControl, toHex } from '../components/colorControl.js';
+import { createColorControl } from '../components/colorControl.js';
+import { rgbToHex } from '../lib/color.js';
 import { createGradientEditor } from '../components/gradientEditor.js';
 import { sceneCard } from '../components/sceneCard.js';
 import { showResult } from '../components/resultToast.js';
@@ -182,14 +183,14 @@ export async function mount(view) {
 
   function renderPalette() {
     const anchor = control.getColor();
-    const activeHex = toHex(anchor);
+    const activeHex = rgbToHex(anchor);
 
     tonesEl.innerHTML = '';
     for (let i = 0; i < 10; i++) {
       const rgb = i <= 4
         ? mixRgb({ r: 255, g: 255, b: 255 }, anchor, i / 4)
         : mixRgb(anchor, { r: 0, g: 0, b: 0 }, (i - 4) / 5);
-      const hex = toHex(rgb);
+      const hex = rgbToHex(rgb);
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.className = `h-6 rounded-lg p-0 border border-black/10 dark:border-white/10${hex === activeHex ? ' ring-2 ring-inset ring-white/70' : ''}`;

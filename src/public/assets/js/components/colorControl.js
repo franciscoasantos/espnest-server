@@ -4,6 +4,8 @@
 //   createColorControl(container, { onChange, hasWhite })
 //   -> { getColor, setColor, setWhiteEnabled, destroy }
 
+import { hexToRgb, rgbToHex, rgbwCss } from '../lib/color.js';
+
 export function hsvToRgb(h, s, v) {
   h = (h % 360 + 360) % 360;
   const c = v * s;
@@ -33,25 +35,6 @@ export function rgbToHsv(r, g, b) {
   return { h, s: max === 0 ? 0 : d / max, v: max };
 }
 
-// O LED branco do SK6812 soma luz por cima do RGB. Qualquer preview que
-// ignore `w` mostra a fita mais escura do que ela está — e o slider de
-// branco parece não fazer nada.
-export function rgbwCss({ r, g, b, w = 0 }) {
-  const add = (c) => Math.min(255, (c || 0) + (w || 0));
-  return `rgb(${add(r)},${add(g)},${add(b)})`;
-}
-
-export function toHex({ r, g, b }) {
-  const p = (n) => n.toString(16).padStart(2, '0');
-  return `#${p(r)}${p(g)}${p(b)}`.toUpperCase();
-}
-
-function hexToRgb(hex) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const int = parseInt(m[1], 16);
-  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
-}
 
 // Geometria lógica (coordenadas internas); a exibição é escalada por CSS.
 const SIZE = 280;
@@ -161,7 +144,7 @@ export function createColorControl(container, { onChange, hasWhite = false } = {
     const rgb = hsvToRgb(hue, sat, val);
     svSel.style.background = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
     preview.style.background = rgbwCss({ ...rgb, w: hasWhite ? w : 0 });
-    hex.value = toHex(rgb);
+    hex.value = rgbToHex(rgb);
     white.value = w;
     whiteVal.textContent = String(w);
   }

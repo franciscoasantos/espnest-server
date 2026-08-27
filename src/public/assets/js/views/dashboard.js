@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import { router } from '../router.js';
 import { icon, escapeHtml, toast, confirmModal } from '../ui.js';
 import { showResult } from '../components/resultToast.js';
-import { rgbwCss } from '../components/colorControl.js';
+import { rgbwCss } from '../lib/color.js';
 
 const EFFECT_LABELS = {
   breathing: 'Respiração',

@@ -5,7 +5,7 @@
 // outro em efeito — então o subtítulo resume os modos além dos alvos.
 
 import { escapeHtml, icon } from '../ui.js';
-import { rgbwCss } from './colorControl.js';
+import { rgbwCss } from '../lib/color.js';
 
 const MODE_LABELS = {
   solid: 'cor',
