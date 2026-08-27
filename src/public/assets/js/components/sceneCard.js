@@ -6,6 +6,7 @@
 
 import { escapeHtml, icon } from '../ui.js';
 import { rgbwCss } from '../lib/color.js';
+import { gradientCss } from '../lib/gradient.js';
 
 const MODE_LABELS = {
   solid: 'cor',
@@ -29,14 +30,10 @@ function describeDevices(devices, clientsByMac) {
 }
 
 // Gradiente aparece como faixa; o resto, como bloco de cor.
-function previewStyle(scene) {
+// Exportado porque o Início mostra a mesma miniatura na fileira de atalhos.
+export function previewStyle(scene) {
   const gradient = scene.devices?.find((d) => d.mode === 'gradient');
-  if (gradient) {
-    const stops = gradient.stops
-      .map((s) => `rgb(${s.r},${s.g},${s.b}) ${Math.round((s.pos / 255) * 100)}%`)
-      .join(', ');
-    return `background:linear-gradient(to right, ${stops})`;
-  }
+  if (gradient) return `background:${gradientCss(gradient.stops)}`;
 
   return `background:${rgbwCss(scene.preview || { r: 0, g: 0, b: 0 })}`;
 }
@@ -51,15 +48,15 @@ export function sceneCard(scene, { onApply, onDelete, onRename, onMove, clientsB
         <span class="block truncate font-medium">${escapeHtml(scene.name)}</span>
         <span class="block truncate text-xs muted">${escapeHtml(describeDevices(scene.devices || [], clientsByMac))}</span>
       </span>
-      <span class="shrink-0 rounded-lg bg-indigo-500/10 px-2.5 py-1 text-xs font-medium text-indigo-600 dark:text-indigo-300">Aplicar</span>
+      <span class="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium" style="background:rgb(var(--led) / .16);color:rgb(var(--led))">Aplicar</span>
     </button>
-    <div class="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
-      <button data-act="up" class="rounded-lg bg-white/80 p-1.5 text-zinc-400 hover:text-indigo-500 disabled:opacity-30 dark:bg-zinc-900/80" aria-label="Mover para cima" ${canMoveUp ? '' : 'disabled'}>▲</button>
-      <button data-act="down" class="rounded-lg bg-white/80 p-1.5 text-zinc-400 hover:text-indigo-500 disabled:opacity-30 dark:bg-zinc-900/80" aria-label="Mover para baixo" ${canMoveDown ? '' : 'disabled'}>▼</button>
-      <button data-act="rename" class="rounded-lg bg-white/80 p-1.5 text-zinc-400 hover:text-indigo-500 dark:bg-zinc-900/80" aria-label="Renomear cena">
+    <div class="absolute right-2 top-2 flex gap-1 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
+      <button data-act="up" class="h-9 w-9 rounded-lg bg-white/85 text-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:bg-zinc-900/85 dark:hover:text-zinc-100" aria-label="Mover para cima" ${canMoveUp ? '' : 'disabled'}>▲</button>
+      <button data-act="down" class="h-9 w-9 rounded-lg bg-white/85 text-zinc-500 hover:text-zinc-900 disabled:opacity-30 dark:bg-zinc-900/85 dark:hover:text-zinc-100" aria-label="Mover para baixo" ${canMoveDown ? '' : 'disabled'}>▼</button>
+      <button data-act="rename" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/85 text-zinc-500 hover:text-zinc-900 dark:bg-zinc-900/85 dark:hover:text-zinc-100" aria-label="Renomear cena">
         ${icon('pencil', 'h-4 w-4')}
       </button>
-      <button data-act="delete" class="rounded-lg bg-white/80 p-1.5 text-zinc-400 hover:text-red-500 dark:bg-zinc-900/80" aria-label="Excluir cena">
+      <button data-act="delete" class="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-white/85 text-zinc-500 hover:text-red-500 dark:bg-zinc-900/85" aria-label="Excluir cena">
         ${icon('trash', 'h-4 w-4')}
       </button>
     </div>`;
