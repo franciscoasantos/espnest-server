@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon --watch src --ext js,json,html --ignore \"src/data/*\" --exec node src/server.js",
-    "test": "node src/auth/jwt.test.js"
+    "test": "node src/auth/jwt.test.js && node src/services/ledService.test.js"
   },
   "keywords": [],
   "author": "",

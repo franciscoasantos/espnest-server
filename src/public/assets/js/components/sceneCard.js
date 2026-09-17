@@ -5,6 +5,7 @@
 // outro em efeito — então o subtítulo resume os modos além dos alvos.
 
 import { escapeHtml, icon } from '../ui.js';
+import { rgbwCss } from './colorControl.js';
 
 const MODE_LABELS = {
   solid: 'cor',
@@ -37,8 +38,7 @@ function previewStyle(scene) {
     return `background:linear-gradient(to right, ${stops})`;
   }
 
-  const { r, g, b } = scene.preview || { r: 0, g: 0, b: 0 };
-  return `background:rgb(${r},${g},${b})`;
+  return `background:${rgbwCss(scene.preview || { r: 0, g: 0, b: 0 })}`;
 }
 
 export function sceneCard(scene, { onApply, onDelete, onRename, onMove, clientsByMac = {}, canMoveUp, canMoveDown }) {

@@ -5,6 +5,7 @@ import { api } from '../api.js';
 import { router } from '../router.js';
 import { icon, escapeHtml, toast, confirmModal } from '../ui.js';
 import { showResult } from '../components/resultToast.js';
+import { rgbwCss } from '../components/colorControl.js';
 
 const EFFECT_LABELS = {
   breathing: 'Respiração',
@@ -21,14 +22,14 @@ function deviceCard(c) {
   const online = store.isConnected(c.espMac);
   const color = store.colorOf(c.espMac);
   const effect = store.effectOf(c.espMac);
-  const isOff = !effect && color && color.r === 0 && color.g === 0 && color.b === 0;
+  const isOff = !effect && color && !color.r && !color.g && !color.b && !color.w;
 
   // Swatch: bolinha animada para efeito, cor sólida, ou apagado
   let swatchStyle;
   if (effect === 'rainbow') {
     swatchStyle = 'background:conic-gradient(red,#ff0,#0f0,#0ff,#00f,#f0f,red)';
   } else if (color) {
-    swatchStyle = `background:rgb(${color.r},${color.g},${color.b})`;
+    swatchStyle = `background:${rgbwCss(color)}`;
   } else {
     swatchStyle = 'background:transparent';
   }
@@ -44,7 +45,8 @@ function deviceCard(c) {
   } else if (isOff) {
     ledStatus = '<span class="muted">Apagado</span>';
   } else if (color) {
-    ledStatus = `<span class="font-mono text-zinc-600 dark:text-zinc-300">#${[color.r, color.g, color.b].map((n) => n.toString(16).padStart(2, '0')).join('').toUpperCase()}</span>`;
+    const hex = [color.r, color.g, color.b].map((n) => n.toString(16).padStart(2, '0')).join('').toUpperCase();
+    ledStatus = `<span class="font-mono text-zinc-600 dark:text-zinc-300">#${hex}${color.w ? ` · W${color.w}` : ''}</span>`;
   } else {
     ledStatus = '<span class="muted">—</span>';
   }
