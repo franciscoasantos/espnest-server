@@ -34,7 +34,10 @@ function statusHtml(client) {
 
   const color = store.colorOf(mac);
   if (isOff(color)) return '<span class="muted">Apagado</span>';
-  return `<span class="tabular font-mono text-zinc-600 dark:text-zinc-300">${rgbToHex(color)}</span>`;
+  // O branco do SK6812 não cabe no hex; sem o sufixo, mexer no slider de branco
+  // não muda nada no texto.
+  const white = color.w ? ` · W${color.w}` : '';
+  return `<span class="tabular font-mono text-zinc-600 dark:text-zinc-300">${rgbToHex(color)}${white}</span>`;
 }
 
 function deviceCard(client) {

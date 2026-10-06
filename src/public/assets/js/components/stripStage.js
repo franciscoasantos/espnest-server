@@ -9,7 +9,7 @@
 // existir um editor de segmentos: o palco desenha o que a fita está mostrando.
 
 import { store } from '../store.js';
-import { rgbCss, isOff } from '../lib/color.js';
+import { rgbCss, rgbwCss, isOff } from '../lib/color.js';
 import { gradientCss } from '../lib/gradient.js';
 
 const RAINBOW = 'linear-gradient(90deg,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)';
@@ -57,7 +57,7 @@ export function describeStrip(client) {
   if (effect) {
     const background = effect === 'rainbow'
       ? RAINBOW
-      : (color && !isOff(color) ? rgbCss(color) : null);
+      : (color && !isOff(color) ? rgbwCss(color) : null);
     return { background, lit: !!background, effect, color, label: background ? '' : 'Apagada' };
   }
 
@@ -76,7 +76,7 @@ export function describeStrip(client) {
   }
 
   if (isOff(color)) return { background: null, lit: false, effect: null, color: null, label: 'Apagada' };
-  return { background: rgbCss(color), lit: true, effect: null, color, label: '' };
+  return { background: rgbwCss(color), lit: true, effect: null, color, label: '' };
 }
 
 export function stageClass(strip, size = 'lg') {
