@@ -187,16 +187,20 @@ function setLastLedColor(espMac, color) {
   const normalized = normalizeMac(espMac);
   if (!normalized) return null;
 
-  const { r, g, b } = color || {};
+  const { r, g, b, w } = color || {};
   const valid = [r, g, b].every((value) => Number.isInteger(value) && value >= 0 && value <= 255);
   if (!valid) return null;
+
+  // O branco do SK6812 faz parte da cor: sem guardá-lo aqui, reconectar,
+  // recarregar a página ou capturar uma cena devolvia a fita sem o canal W.
+  const stored = (Number.isInteger(w) && w >= 0 && w <= 255) ? { r, g, b, w } : { r, g, b };
 
   const store = loadStore();
   const client = store.clients.find((item) => item.espMac === normalized);
   if (!client) return null;
 
-  client.lastLedColor = { r, g, b };
-  client.lastPattern = { type: 'solid', color: { r, g, b } };
+  client.lastLedColor = stored;
+  client.lastPattern = { type: 'solid', color: stored };
   client.updatedAt = new Date().toISOString();
   scheduleSave(store);
 

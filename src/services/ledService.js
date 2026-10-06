@@ -75,6 +75,16 @@ async function forEachTarget(espMacs, action, operation) {
   return buildResultSummary(action, results);
 }
 
+// Qual branco descrever como o estado atual da fita depois de um comando de
+// cor. O ACK nem sempre ecoa `w`, e um comando sem `w` deixa o branco como
+// está no firmware — nos dois casos o valor anterior é o certo. Sem isto o
+// servidor passava a achar que o branco era 0 e o apagava no comando seguinte.
+function resolveWhite(ackW, requestedW, previousW) {
+  if (Number.isInteger(ackW)) return ackW;
+  if (Number.isInteger(requestedW)) return requestedW;
+  return Number.isInteger(previousW) ? previousW : null;
+}
+
 // Cor sólida. `w` só vai para fitas SK6812; `fadeMs` faz o firmware interpolar.
 function applyColor(espMacs, { r, g, b, w = null, fadeMs = null }) {
   return forEachTarget(espMacs, 'led', async (espMac, client) => {
@@ -93,9 +103,12 @@ function applyColor(espMacs, { r, g, b, w = null, fadeMs = null }) {
       g: typeof response?.g === 'number' ? response.g : g,
       b: typeof response?.b === 'number' ? response.b : b
     };
+    const confirmedW = resolveWhite(response?.w, w, client.lastLedColor?.w);
+    if (confirmedW !== null) confirmed.w = confirmedW;
+
     setLastLedColor(espMac, confirmed);
     setActiveEffect(espMac, 'none'); // cor sólida interrompe efeito (espelha o firmware)
-    notifyClientState(espMac, { ...confirmed, w: response?.w || 0 }, { type: 'solid', color: confirmed });
+    notifyClientState(espMac, confirmed, { type: 'solid', color: confirmed });
 
     return { espMac, ok: true, response };
   });
@@ -203,6 +216,7 @@ async function restore(state, { fadeMs = 400 } = {}) {
 }
 
 module.exports = {
+  resolveWhite,
   setActiveEffect,
   getActiveEffect,
   getActiveEffectState,

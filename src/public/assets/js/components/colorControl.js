@@ -33,6 +33,14 @@ export function rgbToHsv(r, g, b) {
   return { h, s: max === 0 ? 0 : d / max, v: max };
 }
 
+// O LED branco do SK6812 soma luz por cima do RGB. Qualquer preview que
+// ignore `w` mostra a fita mais escura do que ela está — e o slider de
+// branco parece não fazer nada.
+export function rgbwCss({ r, g, b, w = 0 }) {
+  const add = (c) => Math.min(255, (c || 0) + (w || 0));
+  return `rgb(${add(r)},${add(g)},${add(b)})`;
+}
+
 export function toHex({ r, g, b }) {
   const p = (n) => n.toString(16).padStart(2, '0');
   return `#${p(r)}${p(g)}${p(b)}`.toUpperCase();
@@ -152,7 +160,7 @@ export function createColorControl(container, { onChange, hasWhite = false } = {
     svSel.style.top = `${pct(SV_OFF + (1 - val) * SV)}%`;
     const rgb = hsvToRgb(hue, sat, val);
     svSel.style.background = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
-    preview.style.background = `rgb(${rgb.r},${rgb.g},${rgb.b})`;
+    preview.style.background = rgbwCss({ ...rgb, w: hasWhite ? w : 0 });
     hex.value = toHex(rgb);
     white.value = w;
     whiteVal.textContent = String(w);
@@ -238,6 +246,7 @@ export function createColorControl(container, { onChange, hasWhite = false } = {
     setWhiteEnabled(enabled) {
       hasWhite = !!enabled;
       whiteWrap.classList.toggle('hidden', !hasWhite);
+      syncUI();
     },
     destroy() {
       window.removeEventListener('mousemove', move);

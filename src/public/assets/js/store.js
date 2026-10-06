@@ -135,7 +135,7 @@ export const store = {
         state.liveColors.set(d.espMac, color);
         const c = state.clients.find((x) => x.espMac === d.espMac);
         if (c) {
-          c.lastLedColor = { r: color.r, g: color.g, b: color.b };
+          c.lastLedColor = color;
           if (d.pattern) c.lastPattern = d.pattern;
         }
         emit('state', { espMac: d.espMac, color });
