@@ -1,6 +1,12 @@
 // Roteador SPA mínimo baseado em pathname + history API.
 
-const ALIASES = { '/config': '/devices', '/wol-targets': '/devices' };
+// Deep-links antigos continuam vivos. /routines virou aba de Luz, e os alvos
+// WoL deixaram de morar em /devices.
+const ALIASES = {
+  '/config': '/devices',
+  '/wol-targets': '/wol',
+  '/routines': '/led/rotinas'
+};
 
 let routes = {};
 let current = null;       // { cleanup }

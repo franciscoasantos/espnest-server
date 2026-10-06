@@ -59,6 +59,9 @@ export const store = {
     return c && c.lastLedColor ? c.lastLedColor : null;
   },
   clientByMac(mac) { return state.clients.find((c) => c.espMac === mac) || null; },
+  // Mapa mac -> client. Views que renderizam listas precisam resolver apelidos
+  // em massa; antes cada uma montava o próprio Object.fromEntries.
+  clientsByMac() { return Object.fromEntries(state.clients.map((c) => [c.espMac, c])); },
 
   /* ------------------------- seleção global ---------------------- */
   get selection() { return state.selection; },
@@ -165,14 +168,25 @@ export const store = {
   }
 };
 
+// Houve uma escolha explícita de seleção (salva antes ou feita nesta sessão)?
+// Sem isto, "selecionar todos por padrão" reenchia a seleção toda vez que ela
+// ficasse vazia — e como todo mount de view chama refreshClients(), apertar
+// "Nenhum" era desfeito na navegação seguinte, sem explicação nenhuma.
+let selectionChosen = false;
+
 function persistSelection() {
+  // Qualquer alteração vinda do usuário conta como preferência, inclusive
+  // deixar a seleção vazia de propósito.
+  selectionChosen = true;
   try { localStorage.setItem(SELECTION_KEY, JSON.stringify([...state.selection])); } catch (e) {}
 }
 
 function loadSelection() {
   try {
     const raw = localStorage.getItem(SELECTION_KEY);
-    if (raw) state.selection = new Set(JSON.parse(raw));
+    if (raw === null) return;
+    state.selection = new Set(JSON.parse(raw));
+    selectionChosen = true;
   } catch (e) {}
 }
 
@@ -182,8 +196,8 @@ function pruneSelection() {
   for (const mac of state.selection) {
     if (!valid.has(mac)) { state.selection.delete(mac); changed = true; }
   }
-  // Seleção padrão: se nada selecionado e há clientes, seleciona todos.
-  if (state.selection.size === 0 && state.clients.length) {
+  // Padrão de primeira vez: sem preferência salva, seleciona todos.
+  if (!selectionChosen && state.selection.size === 0 && state.clients.length) {
     state.clients.forEach((c) => state.selection.add(c.espMac));
     changed = true;
   }

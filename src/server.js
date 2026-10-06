@@ -13,6 +13,7 @@ const {
   handleUpsertClient,
   handleWOL,
   handleLED,
+  handleToggle,
   handleEffect,
   handleGradient,
   handleSegments,
@@ -123,9 +124,18 @@ const httpServer = http.createServer((req, res) => {
     return res.end();
   }
 
+  const SPA_ROUTES = [
+    "/", "/led", "/led/cenas", "/led/rotinas",
+    "/wol", "/devices",
+    // aliases de deep-links antigos, resolvidos no roteador do cliente
+    "/routines", "/config", "/wol-targets"
+  ];
+
   // SPA PAGE ROUTES — todas servem o mesmo shell; o roteador no cliente decide.
   // Mantém /config e /wol-targets como aliases para deep-links antigos.
-  if (req.method === "GET" && ["/", "/led", "/wol", "/routines", "/devices", "/config", "/wol-targets"].includes(req.url)) {
+  // O cliente corta a query string antes de casar a rota; aqui precisa cortar
+  // também, senão /led?x=1 dava 404 no refresh e funcionava na navegação.
+  if (req.method === "GET" && SPA_ROUTES.includes(req.url.split("?")[0])) {
     return handleAppShell(req, res);
   }
 
@@ -173,6 +183,11 @@ const httpServer = http.createServer((req, res) => {
   // LED COMMAND
   if (req.url === "/led" && req.method === "POST") {
     return handleLED(req, res);
+  }
+
+  // LIGA/DESLIGA — apaga, ou devolve a fita ao que ela mostrava antes.
+  if (req.url === "/led/toggle" && req.method === "POST") {
+    return handleToggle(req, res);
   }
 
   // EFFECT COMMAND (efeito roda no firmware do ESP)

@@ -81,6 +81,9 @@ export const api = {
   // fadeMs opcional: o firmware interpola até a cor nova. O seletor ao vivo
   // omite (aplica na hora); cenas mandam algo em torno de 600 ms.
   sendLed: (payload) => req('POST', '/led', payload),
+  // Liga/desliga: o servidor decide, porque só ele guarda o que a fita
+  // mostrava antes de apagar (cor, gradiente, segmentos ou efeito).
+  toggleLed: (payload) => req('POST', '/led/toggle', payload),
   sendWol: (payload) => req('POST', '/wol', payload),
   // Efeito roda no firmware do ESP; envia um único comando (effect:'none' para parar)
   sendEffect: (payload) => req('POST', '/effect', payload),

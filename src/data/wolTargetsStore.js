@@ -54,11 +54,19 @@ function upsertWolTarget(payload) {
     throw new Error('nickname é obrigatório');
   }
 
+  // IP ou hostname do alvo, opcional. Sem ele o ritual de WoL não tem o que
+  // sondar (services/wakeRitual.js devolve probing:false) e o "acordar com a
+  // fita como barra de progresso" vira um Wake-on-LAN comum.
+  // String vazia limpa o campo em vez de manter o valor antigo.
+  const rawHost = payload?.host;
+  const host = typeof rawHost === 'string' ? rawHost.trim() : undefined;
+
   const store = loadStore();
   const idx = store.targets.findIndex((item) => item.mac === mac);
   const nextTarget = {
     mac,
     nickname,
+    ...(host === undefined ? {} : { host: host || null }),
     updatedAt: new Date().toISOString()
   };
 

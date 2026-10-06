@@ -15,6 +15,12 @@ const { notifyClientState, notifyClientEffect } = require('../utils/sse');
 // fogo em intensidade 70 e reaplicá-la traria o fogo no padrão.
 const activeEffects = new Map(); // espMac -> { effect, color, speed, intensity }
 
+// O que a fita mostrava antes de ser apagada, para o botão de liga/desliga
+// conseguir devolvê-la ao mesmo estado. Fica no servidor, e não no navegador,
+// porque a fita continua apagada depois de um F5 — e porque apagar pode vir de
+// qualquer lugar (o botão, uma rotina, o seletor de cor em preto).
+const beforeOff = new Map(); // espMac -> snapshot
+
 function setActiveEffect(espMac, effect, details = {}) {
   const next = (!effect || effect === 'none') ? null : effect;
   const previous = activeEffects.get(espMac)?.effect || null;
@@ -88,6 +94,9 @@ function resolveWhite(ackW, requestedW, previousW) {
 // Cor sólida. `w` só vai para fitas SK6812; `fadeMs` faz o firmware interpolar.
 function applyColor(espMacs, { r, g, b, w = null, fadeMs = null }) {
   return forEachTarget(espMacs, 'led', async (espMac, client) => {
+    // Antes de sobrescrever: se isto está apagando, guarda o que havia.
+    rememberBeforeOff(espMac, { r, g, b, w });
+
     const command = { action: 'led', r, g, b };
     if (client.ledType === 'sk6812' && w !== null) command.w = w;
     if (fadeMs) command.fadeMs = fadeMs;
@@ -172,13 +181,44 @@ function sendWol(espMacs, targetMac) {
 function snapshot(espMac) {
   const client = getClientByMac(espMac);
   if (!client) return null;
+
+  // Guarda velocidade e intensidade junto: sem elas, restaurar um efeito o
+  // devolvia nos valores padrão, e não como o usuário tinha deixado.
+  const effectState = getActiveEffectState(espMac);
+
   return {
     espMac,
-    effect: getActiveEffect(espMac),
+    effect: effectState?.effect || null,
+    effectDetails: effectState
+      ? { color: effectState.color, speed: effectState.speed, intensity: effectState.intensity }
+      : null,
     pattern: client.lastPattern || (client.lastLedColor
       ? { type: 'solid', color: client.lastLedColor }
       : null)
   };
+}
+
+// A fita está mostrando alguma coisa? Preto puro não conta como estado a
+// restaurar, senão o liga/desliga acenderia preto.
+function isLit(state) {
+  if (!state) return false;
+  if (state.effect) return true;
+
+  const pattern = state.pattern;
+  if (!pattern) return false;
+  if (pattern.type === 'gradient') return Array.isArray(pattern.stops) && pattern.stops.length > 0;
+  if (pattern.type === 'segments') return Array.isArray(pattern.segments) && pattern.segments.length > 0;
+
+  const c = pattern.color || {};
+  return !!(c.r || c.g || c.b || c.w);
+}
+
+// Chamado sempre que uma cor sólida é aplicada. Preto guarda o estado atual;
+// qualquer outra cor descarta a memória, porque ela virou o estado corrente.
+function rememberBeforeOff(espMac, { r, g, b, w }) {
+  if (r || g || b || w) { beforeOff.delete(espMac); return; }
+  const current = snapshot(espMac);
+  if (isLit(current)) beforeOff.set(espMac, current);
 }
 
 // Devolve a fita ao estado capturado por snapshot().
@@ -187,7 +227,7 @@ async function restore(state, { fadeMs = 400 } = {}) {
   const macs = [state.espMac];
 
   if (state.effect) {
-    await applyEffect(macs, { effect: state.effect });
+    await applyEffect(macs, { effect: state.effect, ...(state.effectDetails || {}) });
     return;
   }
 
@@ -215,6 +255,37 @@ async function restore(state, { fadeMs = 400 } = {}) {
   await applyColor(macs, { ...pattern.color, fadeMs });
 }
 
+// Liga/desliga: apaga se estiver acesa, devolve ao estado anterior se estiver
+// apagada. Reaproveita snapshot/restore, então cobre cor, gradiente, segmentos
+// e efeito — e não só cor sólida.
+async function toggle(espMacs) {
+  const results = await Promise.all(espMacs.map(async (espMac) => {
+    const client = getClientByMac(espMac);
+    if (!client) return { espMac, ok: false, error: 'Cliente não encontrado' };
+
+    try {
+      if (isLit(snapshot(espMac))) {
+        // applyColor cuida de guardar a memória por dentro.
+        const summary = await applyColor([espMac], { r: 0, g: 0, b: 0, w: 0 });
+        return summary.results[0];
+      }
+
+      const previous = beforeOff.get(espMac);
+      if (!previous) {
+        return { espMac, ok: false, error: 'Nada para restaurar: a fita não tem estado anterior' };
+      }
+
+      await restore(previous);
+      beforeOff.delete(espMac);
+      return { espMac, ok: true };
+    } catch (error) {
+      return { espMac, ok: false, error: error.message };
+    }
+  }));
+
+  return buildResultSummary('toggle', results);
+}
+
 module.exports = {
   resolveWhite,
   setActiveEffect,
@@ -226,5 +297,7 @@ module.exports = {
   applyEffect,
   sendWol,
   snapshot,
-  restore
+  restore,
+  toggle,
+  isLit
 };

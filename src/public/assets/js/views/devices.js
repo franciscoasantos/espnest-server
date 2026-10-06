@@ -1,37 +1,23 @@
-// Dispositivos: gestão de ESP32 (com descoberta/onboarding) e alvos WoL.
-// Observação: o backend só expõe GET/POST para clients e wol-targets
-// (sem DELETE), portanto a UI oferece cadastrar/editar — não excluir.
+// Dispositivos: gestão dos ESP32 — firmware/OTA, descoberta e cadastro.
+//
+// Assunto único: os alvos WoL saíram daqui e passaram a morar em /wol, junto do
+// botão Acordar. A aba que existia aqui só oferecia renomear, o que deixava o
+// recurso de cérebro dividido entre duas telas.
+//
+// Observação: o backend só expõe GET/POST para clients (sem DELETE), portanto a
+// UI oferece cadastrar/editar — não excluir.
 
 import { store } from '../store.js';
 import { api } from '../api.js';
-import { icon, escapeHtml, toast, openModal, node } from '../ui.js';
+import { icon, escapeHtml, toast, openModal, node, confirmModal } from '../ui.js';
 
 export async function mount(view) {
   view.innerHTML = `
     <div class="flex flex-col gap-6">
-      <div class="flex w-fit gap-1 rounded-xl border border-zinc-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
-        <button data-tab="esp" class="rounded-lg px-4 py-1.5 text-sm font-medium">ESP32</button>
-        <button data-tab="wol" class="rounded-lg px-4 py-1.5 text-sm font-medium">Alvos WoL</button>
-      </div>
       <div data-panel></div>
     </div>`;
 
-  const tabs = view.querySelectorAll('[data-tab]');
   const panel = view.querySelector('[data-panel]');
-  let active = 'esp';
-
-  function setTab(t) {
-    active = t;
-    tabs.forEach((b) => {
-      const on = b.dataset.tab === t;
-      b.classList.toggle('bg-indigo-600', on);
-      b.classList.toggle('text-white', on);
-      b.classList.toggle('text-zinc-600', !on);
-      b.classList.toggle('dark:text-zinc-300', !on);
-    });
-    if (t === 'esp') renderEsp(); else renderWol();
-  }
-  tabs.forEach((b) => { b.onclick = () => setTab(b.dataset.tab); });
 
   /* ---------------------------- firmware ---------------------------- */
   let firmware = null;
@@ -205,7 +191,14 @@ export async function mount(view) {
     const client = store.clientByMac(mac);
     // Um update na fita da sala derruba a iluminação por ~1 min; confirmar
     // evita o clique acidental.
-    if (!confirm(`Atualizar ${client ? client.nickname : mac} para ${firmware.version}?\n\nA fita apaga e o dispositivo reinicia.`)) return;
+    const ok = await confirmModal({
+      title: 'Atualizar firmware?',
+      message: `${client ? client.nickname : mac} vai para a versão ${firmware.version}. A fita apaga e o dispositivo reinicia (~1 min).`,
+      confirmText: 'Atualizar',
+      danger: true
+    });
+    if (!ok) return;
+
 
     button.disabled = true;
     store.setOta(mac, { phase: 'downloading', pct: 0 });
@@ -266,76 +259,7 @@ export async function mount(view) {
     };
   }
 
-  /* ------------------------------- WoL ------------------------------ */
-  async function renderWol() {
-    panel.innerHTML = `<p class="py-8 text-center text-sm muted">Carregando…</p>`;
-    let targets = [];
-    try { targets = await api.getWolTargets(); } catch (e) { toast('error', e.message); }
-
-    panel.innerHTML = `
-      <section>
-        <div class="mb-3 flex items-center justify-between">
-          <h2 class="text-sm font-semibold">Alvos WoL</h2>
-          <button data-add class="btn-ghost">${icon('plus', 'h-4 w-4')} Novo alvo</button>
-        </div>
-        <div data-wol-list class="flex flex-col gap-2"></div>
-      </section>`;
-
-    const listEl = panel.querySelector('[data-wol-list]');
-    if (!targets.length) {
-      listEl.innerHTML = `<p class="py-8 text-center text-sm muted">Nenhum alvo cadastrado.</p>`;
-    } else {
-      listEl.innerHTML = targets.map((t) => `
-        <div class="card flex items-center gap-3 p-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500 dark:bg-zinc-800">${icon('wol', 'h-5 w-5')}</span>
-          <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">${escapeHtml(t.nickname)}</p>
-            <p class="truncate font-mono text-xs muted">${escapeHtml(t.mac)}</p>
-          </div>
-          <button data-edit="${escapeHtml(t.mac)}|${escapeHtml(t.nickname)}" class="btn-subtle shrink-0">${icon('pencil', 'h-4 w-4')}</button>
-        </div>`).join('');
-    }
-
-    panel.querySelector('[data-add]').onclick = () => openWolForm(null);
-    panel.querySelectorAll('[data-edit]').forEach((b) => {
-      const [mac, nickname] = b.dataset.edit.split('|');
-      b.onclick = () => openWolForm({ mac, nickname });
-    });
-  }
-
-  function openWolForm(existing) {
-    const isEdit = !!existing;
-    const t = existing || {};
-    const content = node(`
-      <div>
-        <h3 class="text-lg font-semibold">${isEdit ? 'Editar alvo' : 'Novo alvo WoL'}</h3>
-        <div class="mt-4 flex flex-col gap-3">
-          <div><label class="label">Nome</label><input data-nick class="field" placeholder="PC do escritório" maxlength="40" value="${escapeHtml(t.nickname || '')}" /></div>
-          <div><label class="label">MAC</label><input data-mac class="field font-mono" placeholder="A8:A1:59:98:61:0E" value="${escapeHtml(t.mac || '')}" ${isEdit ? 'readonly' : ''} /></div>
-        </div>
-        <div class="mt-5 flex justify-end gap-2">
-          <button data-cancel class="btn-ghost">Cancelar</button>
-          <button data-ok class="btn-primary">${isEdit ? 'Salvar' : 'Cadastrar'}</button>
-        </div>
-      </div>`);
-    const { close } = openModal(content);
-    content.querySelector('[data-cancel]').onclick = close;
-    content.querySelector('[data-ok]').onclick = async () => {
-      try {
-        await api.upsertWolTarget({
-          nickname: content.querySelector('[data-nick]').value.trim(),
-          mac: content.querySelector('[data-mac]').value.trim()
-        });
-        toast('success', isEdit ? 'Alvo atualizado' : 'Alvo cadastrado');
-        close();
-        renderWol();
-      } catch (e) { toast('error', e.message); }
-    };
-  }
-
-  const unsubOta = store.on('ota', ({ espMac }) => {
-    if (active === 'esp') paintOta(espMac);
-  });
+  const unsubOta = store.on('ota', ({ espMac }) => paintOta(espMac));
 
   // O ESP some da rede enquanto reinicia com a imagem nova. Voltar a aparecer
   // online é o sinal de que o update acabou — aí a barra sai e a lista recarrega
@@ -343,8 +267,6 @@ export async function mount(view) {
   // reset antes do frame sair.
   const sawOffline = new Set();
   const unsubStatus = store.on('status', () => {
-    if (active !== 'esp') return;
-
     let finished = false;
     store.clients.forEach((c) => {
       const ota = store.otaOf(c.espMac);
@@ -360,6 +282,6 @@ export async function mount(view) {
     if (finished) renderEsp();
   });
 
-  setTab('esp');
+  renderEsp();
   return () => { unsubOta(); unsubStatus(); };
 }

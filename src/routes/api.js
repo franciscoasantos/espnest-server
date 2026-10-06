@@ -20,7 +20,8 @@ const {
   applyColor,
   applyPattern,
   applyEffect,
-  sendWol
+  sendWol,
+  toggle
 } = require('../services/ledService');
 const { addClient, removeClient } = require('../utils/sse');
 const { saveConfig: saveAwayConfig } = require('../data/awayStore');
@@ -392,6 +393,19 @@ function parseEffectParam(body, key) {
 
 // Envia UM único comando de efeito ao ESP. A animação roda no firmware;
 // o servidor não fica mandando frames. effect 'none' interrompe o efeito.
+// Liga/desliga por dispositivo. Quem decide o que fazer é o servidor, porque só
+// ele sabe o que a fita mostrava antes de apagar.
+async function handleToggle(req, res) {
+  try {
+    const body = await parseJsonBody(req);
+    const targets = parseEspTargets(body);
+    return sendJson(res, 200, await toggle(targets));
+  } catch (error) {
+    const status = error.message === 'Invalid JSON' ? 400 : 422;
+    return sendJson(res, status, { error: error.message });
+  }
+}
+
 async function handleEffect(req, res) {
   try {
     const body = await parseJsonBody(req);
@@ -636,6 +650,7 @@ module.exports = {
   handleUpsertClient,
   handleWOL,
   handleLED,
+  handleToggle,
   handleEffect,
   handleGradient,
   handleSegments,
